@@ -1,0 +1,289 @@
+---
+sidebar_position: 8
+---
+
+# Linkr Skills User Guide
+
+`linkr-skills` is a standardized skill package for AI agents (OpenClaw), enabling remote automation of target machines by calling the standard HTTP interfaces provided by Radxa Linkr (screenshot, keyboard, mouse, and text input).
+
+Suitable for remote server management, automated testing, unattended operations, and similar scenarios.
+
+Project source: [linkr-skills](https://github.com/radxa-linkr/linkr-skills)
+
+:::tip
+
+- This skill is based on the standard Linkr HTTP interface. For detailed protocol and event parameter explanations, see the [Developer Documentation](./develop-guide)
+- Related documents: [Access Tokens](./access-token), [Linkr Web User Guide](./usage)
+
+:::
+
+## Features
+
+| Feature | Description |
+| :--- | :--- |
+| Screenshot | Capture real-time screen images from the target machine for AI model analysis |
+| Mouse Control | Supports absolute coordinates `[0.00, 1.00]` and relative coordinate (pixel) modes |
+| Keyboard Simulation | Full key press/release control, supporting key combinations |
+| Text Input | Auto-chunking with a 1000ms pause every 30 characters to ensure complete input |
+| Delay Control | Ensures operations execute in the expected sequence |
+
+## System Architecture
+
+```text
+┌─────────────┐      HTTP API      ┌─────────────┐      KVM Signal      ┌─────────────┐
+│   OpenClaw  │ ◄────────────────► │    Linkr    │ ◄──────────────────► │   Target    │
+│    (PC)     │                    │             │                      │   Machine   │
+└─────────────┘                    └─────────────┘                      └─────────────┘
+
+    HTTP interface (provided by Linkr):
+    ├── Screenshot endpoint: /api/public/snapshot
+    └── Control endpoint:   /api/public/control
+```
+
+## Prerequisites
+
+### 1. Obtain an API Token
+
+Calling the Linkr public API requires an access token (API Key). See [Access Tokens](./access-token) to create one in Linkr Web under "System Settings → Access Tokens".
+
+### 2. Configure Environment Variables
+
+The following environment variables must be set before using this skill:
+
+- `Linkr_IP`: Linkr device IP address (e.g. `192.168.2.224`)
+- `Linkr_TOKEN`: API token
+
+#### Bash
+
+```bash
+export Linkr_IP="192.168.x.x"
+export Linkr_TOKEN="your_api_token"
+```
+
+#### PowerShell
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("Linkr_IP", "192.168.x.x", "User")
+[System.Environment]::SetEnvironmentVariable("Linkr_TOKEN", "your_api_token", "User")
+```
+
+:::warning
+
+- `Linkr_IP` and `Linkr_TOKEN` in the documentation are variable names only — they are not automatically replaced with real values
+- Real values must come from environment variables readable by OpenClaw at runtime
+- After modifying environment variables, restart OpenClaw or reopen your terminal before executing
+
+:::
+
+## Installing into OpenClaw
+
+```bash
+# Copy to the OpenClaw skills directory
+cp -r linkr-skills ~/.openclaw/skills/
+
+# Verify the installation
+openclaw skills list
+```
+
+### Dependencies
+
+- `curl`: for HTTP requests
+- `python3` + `requests`: for the Python client (optional)
+
+## API Interfaces
+
+`linkr-skills` calls the following two interfaces. For request format, parameters, and response details, see [Developer Documentation - AI Agent Interface](./develop-guide).
+
+| Interface | Method | Purpose |
+| :--- | :--- | :--- |
+| `/api/public/snapshot` | GET | Capture a real-time screenshot (JPEG) from the target machine |
+| `/api/public/control` | POST | Send sequences of keyboard, mouse, text, and delay events |
+
+```bash
+# Screenshot
+curl -X GET "http://${Linkr_IP}:80/api/public/snapshot" -H "Authorization: token ${Linkr_TOKEN}" -o screen.jpeg
+
+# Control
+curl -X POST "http://${Linkr_IP}:80/api/public/control" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: token ${Linkr_TOKEN}" \
+  -d '{"events": [["text", "hello"], ["delay", 300]]}'
+```
+
+## Event Type Quick Reference
+
+Each event is an array; the first element indicates the event type. For detailed parameter explanations and examples, see [Developer Documentation - Control Interface Parameters](./develop-guide).
+
+| Event | Format | Description |
+| :--- | :--- | :--- |
+| Keyboard | `["keyboard", "KeyA", true]` | Press / release a key |
+| Mouse Absolute | `["mouse_abs", 0, 0.5, 0.5, 0, 0]` | Move to absolute screen coordinates (0.00–1.00) |
+| Mouse Relative | `["mouse_rel", 0, 100, 100, 0, 0]` | Move relative to the current position by pixels |
+| Text | `["text", "hello"]` | Input text at the current cursor position |
+| Delay | `["delay", 1000]` | Pause for the specified number of milliseconds |
+
+:::warning
+
+- A delay event **must** follow every text event to ensure complete input of long text
+- For text around 30 characters, a **1000ms** pause is recommended
+- Long text must be chunked, with a pause after every 30 characters
+
+:::
+
+## Complete Example: Using with OpenClaw
+
+Enter a natural language instruction directly in an OpenClaw conversation. The AI agent will automatically load the `linkr-skills` skill, translate the instruction into an event sequence, and send it to the target machine.
+
+**User input**:
+
+```text
+Open Chrome and visit https://radxa.com
+```
+
+**Agent execution flow**:
+
+1. Load the `linkr-skills` skill and read the environment variables `Linkr_IP` and `Linkr_TOKEN`
+2. Call the snapshot interface to confirm the current screen state of the target machine
+3. Generate the event sequence and send it via the control interface
+
+**Event sequence sent**:
+
+```json
+{
+  "events": [
+    ["keyboard", "MetaLeft", true],
+    ["keyboard", "KeyR", true],
+    ["delay", 50],
+    ["keyboard", "KeyR", false],
+    ["keyboard", "MetaLeft", false],
+    ["delay", 500],
+    ["text", "chrome"],
+    ["delay", 300],
+    ["keyboard", "Enter", true],
+    ["keyboard", "Enter", false],
+    ["delay", 3000],
+    ["mouse_abs", 0, 0.5, 0.08, 0, 0],
+    ["delay", 200],
+    ["text", "https://radxa.com"],
+    ["delay", 1000],
+    ["keyboard", "Enter", true],
+    ["keyboard", "Enter", false]
+  ]
+}
+```
+
+**Step breakdown**:
+
+1. Press `Win+R` to open the Run dialog
+2. Type `chrome` and press Enter to launch the browser
+3. Wait 3 seconds for the browser to start
+4. Move the mouse to the address bar (top center)
+5. Type `https://radxa.com`
+6. Pause 1000ms to ensure complete text input
+7. Press Enter to navigate
+
+## Helper Scripts
+
+`linkr-skills` provides Bash and Python helper scripts for quick invocation.
+
+### Bash Quick Call
+
+```bash
+# Send control commands
+./scripts/send_control.sh '{"events":[["text","hello"],["delay",300]]}'
+
+# Capture a screenshot
+curl -X GET "http://${Linkr_IP}:80/api/public/snapshot" -H "Authorization: token ${Linkr_TOKEN}" -o screen.jpeg
+```
+
+### Python Client (optional)
+
+```python
+from scripts.linkr_client import LinkrClient
+
+client = LinkrClient()
+
+# Capture a screenshot
+client.screenshot("desktop.jpeg")
+
+# Input text (auto-chunked: 1000ms pause every 30 characters)
+client.text("This is a long text that will be automatically split into chunks...")
+
+# Key combo Win+R
+client.key_combo("MetaLeft", "KeyR")
+
+# Click the screen center
+client.click(0.5, 0.5)
+```
+
+`linkr_client.py` also supports direct command-line invocation:
+
+```bash
+# Input text
+python linkr_client.py text "Hello World"
+
+# Run a command via Win+R
+python linkr_client.py run notepad
+
+# Click at a specified position (absolute coordinates 0–1)
+python linkr_client.py click 0.5 0.5
+
+# Send a key combination
+python linkr_client.py combo MetaLeft KeyR
+```
+
+## Best Practices
+
+### 1. Coordinate Positioning
+
+- Prefer `mouse_abs` (absolute coordinates); the range `[0.00, 1.00]` adapts to different resolutions
+- Take a screenshot before critical operations to confirm the current screen state
+- Use AI vision analysis for UI element localization
+
+### 2. Timing Control (Important)
+
+| Scenario | Recommended Delay | Notes |
+| :--- | :--- | :--- |
+| After short text (under 10 characters) | 300ms | Simple text |
+| After medium text (10–30 characters) | 500–800ms | e.g., URLs |
+| **After long text (~30 characters)** | **1000ms** | Required, ensures complete input |
+| After launching an app | 2000–5000ms | Depends on app startup time |
+| After page load | 1000–3000ms | Depends on network |
+| Between consecutive keystrokes | 50–100ms | Prevents dropped keys |
+
+### 3. Long Text Input Strategy
+
+Text exceeding 30 characters must be chunked:
+
+```json
+{
+  "events": [
+    ["text", "This is a long text that needs"],
+    ["delay", 1000],
+    ["text", " to be split into multiple parts"],
+    ["delay", 1000],
+    ["text", " to ensure complete input."],
+    ["delay", 1000]
+  ]
+}
+```
+
+When using the Python client, `client.text()` handles auto-chunking automatically.
+
+### 4. Key Operation Rules
+
+- Press and release must always be paired: `[key, true]` and `[key, false]`
+- Press modifier keys (Ctrl/Alt/Shift/Win) first, then the main key
+- Release in reverse order: release the main key first, then the modifier
+
+## Troubleshooting
+
+| Symptom | Possible Cause | Solution |
+| :--- | :--- | :--- |
+| Screenshot fails | Network issue / Linkr not running | Check `Linkr_IP` connectivity |
+| Control unresponsive | Invalid event format | Check JSON array lengths and types |
+| Coordinates inaccurate | Resolution changed | Use `mouse_abs` absolute coordinates `[0.00, 1.00]` |
+| Garbled text input | IME in wrong state | Switch to English input method first |
+| Incomplete text input | Insufficient delay | Add a 1000ms pause after every 30 characters |
+| Operations out of order | Insufficient delay | Increase the `delay` duration |
+| Long text truncated | Buffer overflow | Chunk input with pauses every 30 characters |
