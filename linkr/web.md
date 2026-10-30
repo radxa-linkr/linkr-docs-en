@@ -362,6 +362,8 @@ Capture the current remote screen, and supports preview or saving.
 
 Start or stop recording the remote screen, and supports preview and downloading the recording file.
 
+To capture Linkr video through an OBS Browser source, see [Capture Linkr Video with OBS](./advanced-usage/obs-capture.md).
+
 - Mouse Control
 
 Quickly enable or disable mouse input, and can control the display of the local mouse pointer.
