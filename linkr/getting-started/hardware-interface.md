@@ -65,6 +65,7 @@ The onboard system status LED shows the device's running status, helping users d
 | LED Status | Description |
 | -------- | -------------------------- |
 | Blue blinking | System booting |
+| Red blinking | System software failed to start normally |
 | Solid blue | System running normally |
 | Solid green | In use (active connection) |
 | White blinking | Upgrading firmware |
