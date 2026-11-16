@@ -65,6 +65,7 @@ The onboard system status LED shows the device's running status, helping users d
 | LED Status | Description |
 | -------- | -------------------------- |
 | Blue blinking | System booting |
+| Solid red | The Linkr main application on the Linkr device failed to start |
 | Solid blue | System running normally |
 | Solid green | In use (active connection) |
 | White blinking | Upgrading firmware |
