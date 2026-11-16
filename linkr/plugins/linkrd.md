@@ -18,7 +18,7 @@ Install the **Linkrd plugin** on Linkr and the **Linkrd program** on the remote 
 
 ## Prerequisites
 
-- Linkr firmware that supports Linkrd, and a compatible `.apk` plugin package.
+- Linkr firmware that supports Linkrd, and a Linkrd `.apk` package obtained by following [Download Plugins](./README.md#download-plugins).
 - A data-capable USB cable connecting Linkr's **USB-C device port** to the remote computer. See [Hardware Interfaces](../getting-started/hardware-interface.md).
 - A remote computer running Windows x64, or Linux x64 / ARM64 with an X11 or Wayland desktop session.
 - A browser on the controlling computer that supports clipboard reading and writing, connected to Linkr over **HTTPS**, with clipboard access allowed for the site.
